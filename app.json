@@ -19,10 +19,7 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      },
-      "buildType": "apk",
-      "gradleCommand": ":app:assembleRelease",
-      "developmentClient": true
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
