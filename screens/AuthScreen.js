@@ -1,6 +1,13 @@
-import { Alert, StyleSheet, View, ToastAndroid } from 'react-native';
+import {
+  Alert,
+  StyleSheet,
+  View,
+  ToastAndroid,
+  KeyboardAvoidingView,
+} from 'react-native';
 import React, { useContext, useState } from 'react';
 import { Button, Text, TextInput } from 'react-native-paper';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 import { AuthContext } from '../context/AuthContext';
 import {
@@ -12,11 +19,12 @@ import {
 import { app } from '../lib/firebase';
 const AuthScreen = () => {
   const auth = getAuth(app);
-  const { register, logIn } = useContext(AuthContext);
+
   const [variant, setVariant] = useState('LOGIN');
   const [loading, setLoading] = useState(false);
   const [value, setValue] = useState({
-    name: '',
+    firstName: '',
+
     email: '',
     password: '',
     confirmPassword: '',
@@ -42,8 +50,6 @@ const AuthScreen = () => {
     setLoading(true);
     signInWithEmailAndPassword(auth, email, password)
       .then(({ user }) => {
-        // Signed in
-        console.log(user.displayName);
         ToastAndroid.showWithGravityAndOffset(
           'Signed in successfully',
           ToastAndroid.LONG,
@@ -55,6 +61,15 @@ const AuthScreen = () => {
       .catch((error) => {
         const errorCode = error.code;
         const errorMessage = error.message;
+        if (errorCode === 'auth/user-not-found') {
+          return Alert.alert('User not found');
+        }
+        if (errorCode === 'auth/invalid-password') {
+          return Alert.alert('Invalid credentials');
+        }
+        if (errorCode === 'auth/invalid-email') {
+          return Alert.alert('Invalid Email');
+        }
         return Alert.alert(errorMessage);
       })
       .finally(() => {
@@ -93,7 +108,15 @@ const AuthScreen = () => {
       .catch((error) => {
         const errorCode = error.code;
         const errorMessage = error.message;
-        return Alert.alert(errorMessage);
+
+        if (errorCode === 'auth/email-already-exists') {
+          return Alert.alert('Email already in use');
+        }
+
+        if (errorCode === 'auth/invalid-email') {
+          return Alert.alert('Invalid Email');
+        }
+        Alert.alert('An error occurred');
       })
       .finally(() => setLoading(false));
 
@@ -111,9 +134,9 @@ const AuthScreen = () => {
       return setVariant('LOGIN');
     }
   };
-  console.log(variant);
+
   return (
-    <View
+    <KeyboardAwareScrollView
       style={[styles.container, { marginTop: variant === 'LOGIN' ? 100 : 20 }]}
     >
       <Text variant="displayMedium">
@@ -121,11 +144,13 @@ const AuthScreen = () => {
       </Text>
       <View style={{ rowGap: 20, marginVertical: 20 }}>
         {variant !== 'LOGIN' && (
-          <TextInput
-            value={name}
-            onChangeText={(val) => onChangeValue(val, 'name')}
-            label={'Name'}
-          />
+          <>
+            <TextInput
+              value={name}
+              onChangeText={(val) => onChangeValue(val, 'name')}
+              label={'Name'}
+            />
+          </>
         )}
         <TextInput
           value={email}
@@ -172,7 +197,7 @@ const AuthScreen = () => {
           {variant === 'LOGIN' ? 'Sign up' : 'Sign in'}
         </Button>
       </View>
-    </View>
+    </KeyboardAwareScrollView>
   );
 };
 

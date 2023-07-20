@@ -1,13 +1,11 @@
 import {
   StyleSheet,
-  Text,
   Alert,
   View,
   Dimensions,
-  Pressable,
   ToastAndroid,
 } from 'react-native';
-import React, { useContext, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 
 import {
   getCurrentPositionAsync,
@@ -15,7 +13,17 @@ import {
   PermissionStatus,
   Accuracy,
 } from 'expo-location';
-import { collection, addDoc, getDoc } from 'firebase/firestore';
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  doc,
+  getDocs,
+  query,
+  where,
+  deleteDoc,
+  setDoc,
+} from 'firebase/firestore';
 import MapView, { Marker } from 'react-native-maps';
 import { Button } from 'react-native-paper';
 import { app, db } from '../lib/firebase';
@@ -25,15 +33,20 @@ import { AuthContext } from '../context/AuthContext';
 const { width } = Dimensions.get('window');
 const LocationTracker = () => {
   const auth = getAuth(app);
-  const { user } = useContext(AuthContext);
+  const { user, uid } = useContext(AuthContext);
+
   const [isLoading, setIsLoading] = useState(false);
   const [locationIsOn, setLocationIsOn] = useState(false);
+  const [isExists, setIsExists] = useState(false);
+  const [id, setId] = useState('');
+
   const [mapRegion, setMapRegion] = useState({
     latitude: 5.47631,
     longitude: 7.025853,
     latitudeDelta: 0.0922,
     longitudeDelta: 0.0421,
   });
+
   const [locationPermissionInformation, requestPermission] =
     useForegroundPermissions();
   const verifyPermission = async () => {
@@ -60,22 +73,25 @@ const LocationTracker = () => {
 
     if (!hasPermission) return;
     const location = await getCurrentPositionAsync({
-      accuracy: Accuracy.Highest,
+      accuracy: Accuracy.BestForNavigation,
+      distanceInterval: 10,
     });
 
+    const { coords } = location;
+
     setMapRegion({
-      latitude: location.coords.latitude,
-      longitude: location.coords.longitude,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
       latitudeDelta: 0.0922,
       longitudeDelta: 0.0421,
     });
 
     setIsLoading(true);
     try {
-      const docs = await addDoc(collection(db, 'location'), {
+      await setDoc(doc(db, 'location', uid), {
         latitude: mapRegion.latitude,
         longitude: mapRegion.longitude,
-        name: user,
+        email: user,
       });
     } catch (e) {
       console.error('Error adding document: ', e);
@@ -84,10 +100,54 @@ const LocationTracker = () => {
       setLocationIsOn(true);
     }
   };
+
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const hasPermission = await verifyPermission();
+
+      if (!hasPermission) return;
+      const location = await getCurrentPositionAsync({
+        accuracy: Accuracy.BestForNavigation,
+        distanceInterval: 10,
+      });
+
+      const { coords } = location;
+
+      setMapRegion({
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        latitudeDelta: 0.0922,
+        longitudeDelta: 0.0421,
+      });
+
+      try {
+        await setDoc(doc(db, 'location', uid), {
+          latitude: mapRegion.latitude,
+          longitude: mapRegion.longitude,
+          email: user,
+        });
+      } catch (e) {
+        console.error('Error adding document: ', e);
+      }
+      console.log('reading');
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
   const toggleLocation = () => {
     setLocationIsOn((prev) => !prev);
+    deleteDoc(doc(db, 'location', uid))
+      .then((response) =>
+        ToastAndroid.showWithGravityAndOffset(
+          'Location Turned off, Click get your location to get your updated location',
+          ToastAndroid.LONG,
+          ToastAndroid.TOP,
+          25,
+          50
+        )
+      )
+      .catch((error) => console.log(error));
   };
-
+  console.log(id);
   const logOut = () => {
     signOut(auth)
       .then(() => {
@@ -100,7 +160,13 @@ const LocationTracker = () => {
         );
       })
       .catch((error) => {
-        Alert.alert('An error occurred');
+        ToastAndroid.showWithGravityAndOffset(
+          'An error occurred',
+          ToastAndroid.LONG,
+          ToastAndroid.TOP,
+          25,
+          50
+        );
       });
   };
 
@@ -120,7 +186,7 @@ const LocationTracker = () => {
             longitudeDelta: 0.0421,
           }}
         >
-          <Marker coordinate={mapRegion} title="marker" />
+          <Marker coordinate={mapRegion} title={'marker'} />
         </MapView>
       )}
       <View
@@ -129,6 +195,7 @@ const LocationTracker = () => {
           flexDirection: 'row',
           columnGap: 10,
           paddingHorizontal: 20,
+          justifyContent: 'center',
         }}
       >
         <Button

@@ -5,22 +5,26 @@ import { getAuth, onAuthStateChanged } from 'firebase/auth';
 export const AuthContext = createContext({
   isLoggedIn: false,
   setIsLoggedIn: () => {},
-
+  uid: '',
   user: '',
 });
 
 const AuthContextProvider = ({ children }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState('');
+  const [userId, setUserId] = useState('');
   const auth = getAuth();
   onAuthStateChanged(auth, (user) => {
     if (user) {
       setIsLoggedIn(true);
-      setUser(user.displayName);
+      setUserId(user.uid);
+
+      setUser(user.email);
     } else {
       setIsLoggedIn(false);
-      console.log('No user');
+
       setUser('');
+      setUserId('');
     }
   });
 
@@ -30,6 +34,7 @@ const AuthContextProvider = ({ children }) => {
     isLoggedIn,
     setIsLoggedIn,
     user,
+    uid: userId,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
